@@ -548,6 +548,7 @@ ${styleCss}
     <label><input id="ctl-tnum" type="checkbox"${cfg.features && cfg.features['tabular-numbers'] ? ' checked' : ''}> 等宽数字</label>
     <button id="ctl-reset" type="button">重置</button>
     <button id="btn-font-panel" type="button" class="primary">字体…</button>
+    <button id="btn-compare" type="button" aria-pressed="false">分屏对比</button>
   </div>
 </header>
 
@@ -566,6 +567,7 @@ ${styleCss}
     <button type="button" class="slot" data-slot="latin" aria-pressed="true">西文</button>
     <button type="button" class="slot" data-slot="cjk" aria-pressed="false">中文</button>
     <button type="button" class="slot" data-slot="both" aria-pressed="false">中西统一</button>
+    <button type="button" class="slot" data-slot="compare" aria-pressed="false">对比 B</button>
     <span class="slot-current" id="slot-current"></span>
   </div>
   <div class="panel-tools">
@@ -587,6 +589,25 @@ ${styleCss}
 <main class="sheet">
 ${body}
 </main>
+
+<section class="compare" id="compare" hidden aria-label="字体分屏对比">
+  <div class="pane" id="pane-a">
+    <div class="pane-head">
+      <span class="pane-tag">A</span>
+      <code class="pane-font" id="pane-font-a">—</code>
+      <button type="button" class="pane-pick" data-slot="latin" title="修改 A 侧字体">换…</button>
+    </div>
+    <div class="pane-body sheet" id="pane-body-a" tabindex="0" aria-label="对比 A"></div>
+  </div>
+  <div class="pane" id="pane-b">
+    <div class="pane-head">
+      <span class="pane-tag">B</span>
+      <code class="pane-font" id="pane-font-b">—</code>
+      <button type="button" class="pane-pick" data-slot="compare" title="修改 B 侧字体">换…</button>
+    </div>
+    <div class="pane-body sheet" id="pane-body-b" tabindex="0" aria-label="对比 B"></div>
+  </div>
+</section>
 
 <footer class="foot">
   <div class="foot-title">字体族可用性（浏览器实测，绿=本机已安装，红=回退到后继字体）</div>

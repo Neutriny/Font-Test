@@ -653,11 +653,124 @@ body.dropping::after {
   pointer-events: none;
 }
 
+/* -------------------------------------------------------------- 分屏对比 */
+
+body.comparing {
+  overflow: hidden;
+}
+
+body.comparing main.sheet,
+body.comparing .foot {
+  display: none;
+}
+
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  height: calc(100dvh - var(--topbar-h, 2.6rem) - var(--stackline-h, 2.1rem));
+  background: var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* display:grid 会压过 UA 的 [hidden]，必须显式关掉 */
+.compare[hidden] {
+  display: none;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.pane-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.8rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--card);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.6;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+
+.pane-tag {
+  flex: none;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.pane-font {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: none;
+  padding: 0;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: inherit;
+}
+
+.pane-pick {
+  flex: none;
+  padding: 0.1rem 0.55rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  cursor: pointer;
+}
+
+.pane-pick:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 每一侧自己滚动，同步逻辑在 app.js */
+.pane-body {
+  /* body 上的 font-family 已经把 var(--font-text) 解析成具体字族了，
+     子元素继承到的是那份结果，只改 --font-text 变量不会生效。
+     所以这里必须重新声明一次，让每一侧用自己的变量值解析。 */
+  font-family: var(--font-text);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pane-body.sheet {
+  max-width: none;
+  margin: 0;
+  padding: 1.5rem clamp(0.9rem, 2.2vw, 2rem) 3rem;
+}
+
+@media (max-width: 880px) {
+  .compare {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+
+  .pane-body.sheet {
+    padding: 1rem 0.9rem 2rem;
+  }
+}
+
 /* ------------------------------------------------------------------ 打印 */
 
 @media print {
   .topbar,
   .stackline,
+  .compare,
   dialog.panel {
     display: none;
   }

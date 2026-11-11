@@ -80,6 +80,7 @@
     latin: DEFAULTS.latin,
     cjk: DEFAULTS.cjk,
     unified: DEFAULTS.unified || '', // 非空 = 中西文共用这一个字体
+    compare: '', // 分屏对比右侧（B）的字体；空 = 用 font.toml 默认栈
     slot: 'latin',
     loaded: [] // [{ family, faces: ['400 normal', ...] }]
   };
@@ -96,6 +97,17 @@
     var parts = [formatStack(state.latin), formatStack(state.cjk)].filter(Boolean);
     if (!parts.length) return withGeneric(formatStack(DEFAULTS.mono));
     return withGeneric(parts.join(', '));
+  }
+
+  /* font.toml 里配置的原始字体栈，用作对比右栏没指定字体时的参照 */
+  function defaultStack() {
+    if (DEFAULTS.unified) return withGeneric(formatStack(DEFAULTS.unified));
+    var parts = [formatStack(DEFAULTS.latin), formatStack(DEFAULTS.cjk)].filter(Boolean);
+    return withGeneric(parts.join(', ') || formatStack(DEFAULTS.mono));
+  }
+
+  function compareStack() {
+    return state.compare ? withGeneric(formatStack(state.compare)) : defaultStack();
   }
 
   function applyFonts() {
@@ -115,6 +127,7 @@
       cjkEl.textContent = showCjk;
       cjkEl.parentNode.title = state.unified ? '中西统一字体' : showCjk;
     }
+    refreshPaneFonts();
     updateSlotLabel();
   }
 
@@ -122,7 +135,12 @@
     try {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ latin: state.latin, cjk: state.cjk, unified: state.unified })
+        JSON.stringify({
+          latin: state.latin,
+          cjk: state.cjk,
+          unified: state.unified,
+          compare: state.compare
+        })
       );
     } catch {
       /* 隐私模式或禁用存储时忽略 */
@@ -136,6 +154,7 @@
       if (saved.latin) state.latin = saved.latin;
       if (saved.cjk) state.cjk = saved.cjk;
       if (typeof saved.unified === 'string') state.unified = saved.unified;
+      if (typeof saved.compare === 'string') state.compare = saved.compare;
     } catch {
       /* 忽略损坏的存档 */
     }
@@ -279,6 +298,12 @@
         : '中西尚未统一（点字体即同时用于西文与中文）';
       return;
     }
+    if (state.slot === 'compare') {
+      label.textContent =
+        '对比 B：' +
+        (state.compare ? splitFamilies(state.compare).join(' → ') : '未设置（用 font.toml 默认）');
+      return;
+    }
     var current = splitFamilies(state[state.slot]).join(' → ');
     var note = state.unified ? '（当前为中西统一，选字体会改用分栏）' : '';
     label.textContent = (state.slot === 'latin' ? '西文' : '中文') + '：' + current + note;
@@ -286,6 +311,7 @@
 
   function slotFamilies(slot) {
     if (slot === 'both') return splitFamilies(state.unified);
+    if (slot === 'compare') return splitFamilies(state.compare);
     if (state.unified) return []; // 统一模式下分槽设置不生效
     return splitFamilies(state[slot]);
   }
@@ -295,6 +321,8 @@
     var value = quoteFamily(family);
     if (state.slot === 'both') {
       state.unified = value;
+    } else if (state.slot === 'compare') {
+      state.compare = value;
     } else {
       state.unified = '';
       state[state.slot] = value;
@@ -304,7 +332,13 @@
     renderList();
 
     var target =
-      state.slot === 'both' ? '西文与中文' : state.slot === 'latin' ? '西文' : '中文';
+      state.slot === 'both'
+        ? '西文与中文'
+        : state.slot === 'compare'
+          ? '对比栏 B 的'
+          : state.slot === 'latin'
+            ? '西文'
+            : '中文';
     status('已把「' + family + '」设为' + target + '字体');
   }
 
@@ -508,24 +542,41 @@
 
   /* ==================================================== 面板初始化 */
 
+  function setSlotButtons() {
+    var panel = $('font-panel');
+    if (!panel) return;
+    Array.prototype.forEach.call(panel.querySelectorAll('[data-slot]'), function (button) {
+      button.setAttribute(
+        'aria-pressed',
+        String(button.getAttribute('data-slot') === state.slot)
+      );
+    });
+  }
+
+  function openPanel(slot) {
+    var panel = $('font-panel');
+    if (!panel || typeof panel.showModal !== 'function') return;
+    if (slot) state.slot = slot;
+    if (!systemFonts.length) systemFonts = probeCommonFonts();
+    setSlotButtons();
+    updateSlotLabel();
+    renderList();
+    if (!panel.open) panel.showModal();
+  }
+
   function initPanel() {
     var panel = $('font-panel');
     var opener = $('btn-font-panel');
     if (!panel || !opener || typeof panel.showModal !== 'function') return;
 
     opener.addEventListener('click', function () {
-      if (!systemFonts.length) systemFonts = probeCommonFonts();
-      renderList();
-      updateSlotLabel();
-      panel.showModal();
+      openPanel(null);
     });
 
     Array.prototype.forEach.call(panel.querySelectorAll('[data-slot]'), function (button) {
       button.addEventListener('click', function () {
         state.slot = button.getAttribute('data-slot');
-        Array.prototype.forEach.call(panel.querySelectorAll('[data-slot]'), function (other) {
-          other.setAttribute('aria-pressed', String(other === button));
-        });
+        setSlotButtons();
         updateSlotLabel();
         renderList();
       });
@@ -548,6 +599,7 @@
       state.latin = DEFAULTS.latin;
       state.cjk = DEFAULTS.cjk;
       state.unified = DEFAULTS.unified || '';
+      state.compare = '';
       applyFonts();
       persist();
       renderList();
@@ -575,6 +627,137 @@
     });
   }
 
+  /* ====================================================== 分屏对比 */
+
+  /* 把正文复制一份（去掉 id，避免同一页面出现重复 id） */
+  function cloneSheet() {
+    var sheet = document.querySelector('main.sheet');
+    if (!sheet) return null;
+    var frag = document.createDocumentFragment();
+    Array.prototype.forEach.call(sheet.childNodes, function (node) {
+      frag.appendChild(node.cloneNode(true));
+    });
+    Array.prototype.forEach.call(frag.querySelectorAll('[id]'), function (el) {
+      el.removeAttribute('id');
+    });
+    return frag;
+  }
+
+  function buildPanes() {
+    var a = $('pane-body-a');
+    var b = $('pane-body-b');
+    if (!a || !b || a.childNodes.length) return;
+    var first = cloneSheet();
+    var second = cloneSheet();
+    if (!first || !second) return;
+    a.appendChild(first);
+    b.appendChild(second);
+  }
+
+  function paneLabel(stack) {
+    var names = splitFamilies(stack).filter(function (name) {
+      return !isGeneric(name);
+    });
+    return names.slice(0, 3).join(' → ') || stack;
+  }
+
+  /* 每一侧只覆盖 --font-text / --font-head，其余变量继承根节点 */
+  function refreshPaneFonts() {
+    var paneA = $('pane-a');
+    var paneB = $('pane-b');
+    if (!paneA || !paneB) return;
+
+    /* A 栏等于页面本身：正文跟当前字体栈，标题仍用 :root 的 --font-head，
+       所以只覆盖 --font-text；B 栏连标题一起换成被对比的字体才比得全。 */
+    paneA.style.setProperty('--font-text', textStack());
+    paneB.style.setProperty('--font-text', compareStack());
+    paneB.style.setProperty('--font-head', compareStack());
+
+    var labelA = $('pane-font-a');
+    var labelB = $('pane-font-b');
+    if (labelA) {
+      labelA.textContent = paneLabel(textStack());
+      labelA.title = textStack();
+    }
+    if (labelB) {
+      labelB.textContent = state.compare
+        ? paneLabel(compareStack())
+        : paneLabel(defaultStack()) + '（font.toml）';
+      labelB.title = compareStack();
+    }
+  }
+
+  /* 两侧行数不同，按滚动百分比同步。
+     scroll 事件是异步的，程序写进去的位置会晚一拍回调过来；先用像素值
+     记下“这一侧是我写的”，回响时直接吞掉，避免两边互相拉扯。 */
+  function initCompareScroll() {
+    var a = $('pane-body-a');
+    var b = $('pane-body-b');
+    if (!a || !b || a.getAttribute('data-synced') === 'true') return;
+    a.setAttribute('data-synced', 'true');
+    b.setAttribute('data-synced', 'true');
+
+    var expected = new Map();
+
+    function apply(from, to) {
+      var maxFrom = from.scrollHeight - from.clientHeight;
+      var maxTo = to.scrollHeight - to.clientHeight;
+      if (maxFrom <= 0 || maxTo <= 0) return;
+      var target = Math.round((from.scrollTop / maxFrom) * maxTo);
+      if (Math.abs(to.scrollTop - target) <= 1) return; // 已经在同一比例上
+      expected.set(to, target);
+      to.scrollTop = target;
+    }
+
+    function watch(self, other) {
+      self.addEventListener(
+        'scroll',
+        function () {
+          var mine = expected.get(self);
+          var isEcho = typeof mine === 'number' && Math.abs(self.scrollTop - mine) <= 1;
+          expected.delete(self);
+          if (isEcho) return;
+          apply(self, other);
+        },
+        { passive: true }
+      );
+    }
+
+    watch(a, b);
+    watch(b, a);
+  }
+
+  function setCompare(on) {
+    var section = $('compare');
+    var button = $('btn-compare');
+    if (!section || !button) return;
+    if (on) {
+      buildPanes();
+      initCompareScroll();
+    }
+    document.body.classList.toggle('comparing', on);
+    section.hidden = !on;
+    button.setAttribute('aria-pressed', String(on));
+    button.textContent = on ? '退出对比' : '分屏对比';
+    if (on) {
+      refreshPaneFonts();
+      syncTopbarHeight();
+    }
+  }
+
+  function initCompare() {
+    var button = $('btn-compare');
+    if (!button) return;
+    button.addEventListener('click', function () {
+      setCompare(button.getAttribute('aria-pressed') !== 'true');
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.pane-pick'), function (pick) {
+      pick.addEventListener('click', function () {
+        openPanel(pick.getAttribute('data-slot'));
+      });
+    });
+  }
+
   /* ====================================================== 页脚徽标 */
 
   function renderFooter() {
@@ -598,8 +781,9 @@
   /* 工具条会换行，高度不固定，量出来给字体信息条当 sticky top */
   function syncTopbarHeight() {
     var bar = document.querySelector('.topbar');
-    if (!bar) return;
-    root.style.setProperty('--topbar-h', bar.offsetHeight + 'px');
+    if (bar) root.style.setProperty('--topbar-h', bar.offsetHeight + 'px');
+    var line = document.querySelector('.stackline');
+    if (line) root.style.setProperty('--stackline-h', line.offsetHeight + 'px');
   }
 
   function initStickyStackline() {
@@ -609,6 +793,10 @@
     var bar = document.querySelector('.topbar');
     if (bar && window.ResizeObserver) {
       new ResizeObserver(syncTopbarHeight).observe(bar);
+    }
+    var line = document.querySelector('.stackline');
+    if (line && window.ResizeObserver) {
+      new ResizeObserver(syncTopbarHeight).observe(line);
     }
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(syncTopbarHeight); // 字体落地后控件高度可能变
@@ -621,6 +809,7 @@
   initControls();
   applyFonts();
   initPanel();
+  initCompare();
   initStickyStackline();
   detectServer();
   renderFooter();
