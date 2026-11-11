@@ -1,0 +1,14 @@
+{
+  "name": "font-test",
+  "version": "1.0.0",
+  "private": true,
+  "license": "Unlicense",
+  "description": "用 Markdown 写、由 font.toml 配置字体的排印样张",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "serve": "node build.mjs --serve",
+    "open": "node build.mjs --open"
+  }
+}

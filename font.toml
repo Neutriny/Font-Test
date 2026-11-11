@@ -1,0 +1,68 @@
+# ---------------------------------------------------------------------------
+# 字体测试配置
+# 改完运行 `node build.mjs` 重新生成 index.html（或用 `node build.mjs --watch`）
+#
+# 字体栈写法与 CSS 一致：用逗号分隔，带空格的族名用引号包起来。
+# 西文字体放在 latin 里、中文字体放在 cjk 里，浏览器会按字符逐个回退，
+# 于是拉丁字母走 latin、汉字走 cjk，正好用来检查中西混排。
+# ---------------------------------------------------------------------------
+
+[base]
+latin = "'JetBrains Maple Mono'"
+cjk = "'HarmonyOS Sans SC, 'Microsoft YaHei'"
+mono = "'JetBrains Maple Mono'"
+
+# 统一字体：填上就中西文都用这一个字体（忽略 latin / cjk），留空则分开设置
+# 例：unified = "'HarmonyOS Sans SC'"
+# 页面里也可以点字体面板的「中西统一」临时切换，选「西文」「中文」即恢复分栏。
+unified = ""
+
+# 正文尺寸 / 行高 / 字距 / 对齐方式（left | justify）
+size = "18px"
+line-height = 1.9
+letter-spacing = "0.01em"
+text-align = "left"
+
+[headings]
+# 标题单独一套字体；留空字符串则沿用 base
+latin = ""
+cjk = ""
+weight = 600
+
+[style]
+background = "#f6f4ef"
+card = "#fffdf9"
+foreground = "#191919"
+muted = "#6b6660"
+accent = "#9a3412"
+rule = "#e2ddd3"
+code-bg = "#eee9dd"
+measure = "46rem"
+
+[features]
+# 连字开关（liga / calt）
+ligatures = true
+# 全局强制等宽数字（页面顶部也有开关，可即时切换对比）
+tabular-numbers = false
+
+# ---------------------------------------------------------------------------
+# 可选：用本地字体文件测试（family 名字要和上面字体栈里的一致）
+# 取消注释并填好路径即可，支持 woff2 / woff / ttf / otf
+# ---------------------------------------------------------------------------
+# [[face]]
+# family = "Test Sans"
+# file = "./fonts/TestSans-Regular.woff2"
+# weight = 400
+# style = "normal"
+#
+# [[face]]
+# family = "Test Sans"
+# file = "./fonts/TestSans-Bold.woff2"
+# weight = 700
+# style = "normal"
+#
+# [[face]]
+# family = "Test Sans"
+# file = "./fonts/TestSans-Italic.woff2"
+# weight = 400
+# style = "italic"
